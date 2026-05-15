@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "connected-signs",
+	"version": "${version}",
+	"name": "Connected Signs",
+	"description": "A mod that allows you to edit multiple signs at once if they are adjacent.",
+	"authors": [
+		"furrymusic.tv"
+	],
+	"license": "Apache-2.0",
+	"icon": "assets/connected-signs/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.connectedsigns.ConnectedSigns"
+		],
+		"client": [
+			"com.connectedsigns.client.ConnectedSignsClient"
+		]
+	},
+	"mixins": [
+		"connected-signs.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
