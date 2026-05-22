@@ -84,7 +84,12 @@ public class MultiSignEditScreen extends Screen {
 
         String woodType = blockId.replace("_wall_sign", "");
 
-        return Identifier.of("minecraft", "textures/entity/signs/" + woodType + ".png");
+        Identifier id = Identifier.of("minecraft", "textures/entity/signs/" + woodType + ".png");
+        if (MinecraftClient.getInstance().getResourceManager().getResource(id).isPresent()) {
+            return id;
+        }
+        return Identifier.of("minecraft", "textures/entity/signs/oak.png");
+
     }
 
     @Override
