@@ -75,6 +75,13 @@ public class MultiSignEditScreen extends Screen {
             }
             rows[row] = sb.toString();
         }
+
+        int maxChars = MAX_CHARS_PER_LINE * positions.size();
+        for (int row = 0; row < LINES_PER_SIGN; row++) {
+            if (rows[row].length() > maxChars) {
+                rows[row] = rows[row].substring(0, maxChars);
+            }
+        }
         cursorCol = rows[0].length();
     }
 
@@ -109,6 +116,7 @@ public class MultiSignEditScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal(SignGroupCache.isIndividual(clickedPos) ? "Individual: YES" : "Individual: NO"), btn -> {
             if (SignGroupCache.isIndividual(clickedPos)) {
                 SignGroupCache.unmarkIndividual(clickedPos);
+                BigSignClientNetwork.sendMarkIndividual(clickedPos, false);
                 btn.setMessage(Text.literal("Individual: NO"));
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client.world != null) {
@@ -117,6 +125,7 @@ public class MultiSignEditScreen extends Screen {
                 }
             } else {
                 SignGroupCache.markIndividual(clickedPos);
+                BigSignClientNetwork.sendMarkIndividual(clickedPos, true);
                 btn.setMessage(Text.literal("Individual: YES"));
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client.world != null) {

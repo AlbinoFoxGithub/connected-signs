@@ -15,9 +15,11 @@ public class SignGroupCache {
     // individuality
     public static void markIndividual(BlockPos pos) {
         individualSigns.add(pos);
+        System.out.println("[ConnectedSigns] Marked individual: " + pos);
     }
     public static void unmarkIndividual(BlockPos pos) {
         individualSigns.remove(pos);
+        System.out.println("[ConnectedSigns] Unmarked individual: " + pos);
     }
     public static boolean isIndividual(BlockPos pos) {
         return individualSigns.contains(pos);
