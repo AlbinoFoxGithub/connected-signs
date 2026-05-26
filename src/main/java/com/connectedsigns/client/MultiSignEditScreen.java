@@ -43,9 +43,7 @@ public class MultiSignEditScreen extends Screen {
     private static final int SIGN_HEIGHT = 60;
     private static final int TEXT_COLOR = 0xFF000000;
 
-    private boolean largeMiddleRow = false;
     private final BlockPos clickedPos;
-    private ButtonWidget largeRow;
 
     private Identifier signTexture;
 
@@ -99,31 +97,13 @@ public class MultiSignEditScreen extends Screen {
         return fallback;
     }
 
-    private void refreshLargeRowButton() {
-        if (largeRow != null) remove(largeRow);
-        int centerX = width / 2;
-        int buttonY = height / 2 + 70;
-        largeRow = ButtonWidget.builder(Text.literal("Large Row: " + (largeMiddleRow ? "ON" : "OFF")), btn -> {
-            largeMiddleRow = !largeMiddleRow;
-            if (largeMiddleRow && cursorRow == 2) cursorRow = 3;
-            remove(largeRow);
-            largeRow = ButtonWidget.builder(
-                    Text.literal("Large Row: " + (largeMiddleRow ? "ON" : "OFF")), b -> {}).dimensions(centerX + 60, buttonY, 120, 20).build();
-            largeRow.active = signPositions.size() >= 2;
-            addDrawableChild(largeRow);
-            setFocused(null);
-        }).dimensions(centerX + 60, buttonY, 120, 20).build();
-        largeRow.active = signPositions.size() >= 2;
-        addDrawableChild(largeRow);
-    }
-
     @Override
     protected void init() {
         int centerX = width / 2;
         int buttonY = height / 2 + 70;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Done"), btn -> close())
-                .dimensions(centerX - 50, buttonY, 100, 20)
+                .dimensions(centerX + 5, buttonY, 100, 20)
                 .build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal(SignGroupCache.isIndividual(clickedPos) ? "Individual: YES" : "Individual: NO"), btn -> {
@@ -143,9 +123,7 @@ public class MultiSignEditScreen extends Screen {
                     client.setScreen(new MultiSignEditScreen(List.of(clickedPos), client.world, clickedPos));
                 }
             }
-        }).dimensions(centerX - 160, buttonY, 100, 20).build());
-
-        refreshLargeRowButton();
+        }).dimensions(centerX - 105, buttonY, 100, 20).build());
         setFocused(null);
     }
 
@@ -226,43 +204,15 @@ public class MultiSignEditScreen extends Screen {
             // int lineY = startY + 10 + row * LINE_HEIGHT;
             int centerX = startX + totalWidth / 2;
 
-            if (largeMiddleRow && signPositions.size() >= 2) {
-                int lineY = startY + 8;
-                String topText = rows[0];
-                int textX = centerX - textRenderer.getWidth(topText) / 2;
-                context.drawText(textRenderer, topText, textX, lineY, TEXT_COLOR, false);
-                if (cursorRow == 0 && cursorVisible) drawCursor(context, textX, lineY, topText);
-
-                String middleText = rows[1];
-                int midY = startY + SIGN_HEIGHT / 2 - 4;
-                context.getMatrices().push();
-                context.getMatrices().translate(centerX, lineY, 0);
-                context.getMatrices().scale(2.0f, 2.0f, 1.0f);
-                int midX = -textRenderer.getWidth(middleText) / 2;
-                context.drawText(textRenderer, middleText, textX, 0, TEXT_COLOR, false);
-                if (cursorRow == 1 && cursorVisible) drawCursor(context, textX, 0, middleText);
-                context.getMatrices().pop();
-
-                int botY = startY + SIGN_HEIGHT - 14;
-                String bottomText = rows[3];
-                int botX = centerX - textRenderer.getWidth(bottomText) / 2;
-                context.drawText(textRenderer, bottomText, textX, lineY, TEXT_COLOR, false);
-                if (cursorRow == 3 && cursorVisible) drawCursor(context, textX, lineY, bottomText);
-            } else {
-                for (row = 0; row < LINES_PER_SIGN; row++) {
-                    String rowText = rows[row];
-                    int lineY = startY + 8 + row * LINE_HEIGHT;
-                    int textX = centerX - textRenderer.getWidth(rowText) / 2;
-                    context.drawText(textRenderer, rowText, textX, lineY, TEXT_COLOR, false);
-                    if (cursorRow == row && cursorVisible) drawCursor(context, textX, lineY, rowText);
-                }
+            for (row = 0; row < LINES_PER_SIGN; row++) {
+                String rowText = rows[row];
+                int lineY = startY + 8 + row * LINE_HEIGHT;
+                int textX = centerX - textRenderer.getWidth(rowText) / 2;
+                context.drawText(textRenderer, rowText, textX, lineY, TEXT_COLOR, false);
+                if (cursorRow == row && cursorVisible) drawCursor(context, textX, lineY, rowText);
             }
         }
-
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Editing " + numSigns + " sign"
-                        + (numSigns > 1 ? "s" : "")),
-                width / 2, startY - 16, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal("Editing " + numSigns + " sign" + (numSigns > 1 ? "s" : "")), width / 2, startY - 16, 0xFFFFFF);
     }
 
     @Override
@@ -278,23 +228,13 @@ public class MultiSignEditScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         switch (keyCode) {
             case 265 -> { // up
-                if (largeMiddleRow && signPositions.size() >= 2) {
-                    if (cursorRow == 3) cursorRow = 1;
-                    else if (cursorRow == 1) cursorRow = 0;
-                } else {
-                    if (cursorRow > 0) cursorRow--;
-                }
-                clampCursor();
+                if (cursorRow > 0) cursorRow--;
+                cursorCol = rows[cursorRow].length();
                 return true;
             }
             case 264 -> { // down
-                if (largeMiddleRow && signPositions.size() >= 2) {
-                    if (cursorRow == 0) cursorRow = 1;
-                    else if (cursorRow == 1) cursorRow = 3;
-                } else {
-                    if (cursorRow < LINES_PER_SIGN - 1) cursorRow++;
-                }
-                clampCursor();
+                if (cursorRow < LINES_PER_SIGN - 1) cursorRow++;
+                cursorCol = rows[cursorRow].length();
                 return true;
             }
             case 263 -> { // left
@@ -306,21 +246,10 @@ public class MultiSignEditScreen extends Screen {
                 return true;
             }
             case 257, 335 -> { // enter
-                if (largeMiddleRow && signPositions.size() >= 2) {
-                    if (cursorRow == 0) {
-                        cursorRow = 1;
-                        cursorCol = rows[1].length();
-                    }
-                    else if (cursorRow == 1) {
-                        cursorRow = 3;
-                        cursorCol = rows[3].length();
-                    }
-                } else {
                     if (cursorRow < LINES_PER_SIGN - 1) {
                         cursorRow++;
                         cursorCol = rows[cursorRow].length();
                     }
-                }
                 return true;
             }
             case 259 -> { // backspace
@@ -345,7 +274,6 @@ public class MultiSignEditScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        if (largeMiddleRow && signPositions.size() >= 2) return true;
         int maxChars = maxCharsForGroup(signPositions.size());
         String row = rows[cursorRow];
         if (row.length() < maxChars) {
@@ -379,20 +307,12 @@ public class MultiSignEditScreen extends Screen {
 
     @Override
     public void close() {
-        if (largeMiddleRow && signPositions.size() >= 2) {
-            rows[2] = rows[1];
-        }
-
         List<String[]> signLines = buildSignLines();
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.isIntegratedServerRunning()) {
-            SignGroupCache.setLargeRow(signPositions.get(0), largeMiddleRow);
             client.getServer().execute(() -> {
                 ServerWorld serverWorld = client.getServer().getOverworld();
                 for (int i = 0; i < signPositions.size(); i++) {
-                    if (largeMiddleRow && signPositions.size() >= 2) {
-                        rows[2] = rows[1];
-                    }
                     BlockPos pos = signPositions.get(i);
                     String[] lines = signLines.get(i);
                     if (serverWorld.getBlockEntity(pos) instanceof SignBlockEntity sign) {

@@ -12,8 +12,6 @@ public class SignGroupCache {
 
     private static final Set<BlockPos> individualSigns = new HashSet<>();
 
-    private static final Set<BlockPos> largeRowGroups = new HashSet<>();
-
     // individuality
     public static void markIndividual(BlockPos pos) {
         individualSigns.add(pos);
@@ -23,14 +21,6 @@ public class SignGroupCache {
     }
     public static boolean isIndividual(BlockPos pos) {
         return individualSigns.contains(pos);
-    }
-
-    public static void setLargeRow(BlockPos pos, boolean enabled) {
-        if (enabled) largeRowGroups.add(pos);
-        else largeRowGroups.remove(pos);
-    }
-    public static boolean isLargeRow(BlockPos pos) {
-        return largeRowGroups.contains(pos);
     }
 
     public static void setWorld(World world) {
