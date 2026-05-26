@@ -1,16 +1,12 @@
 package com.connectedsigns.network;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import com.connectedsigns.SignGroupCache;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.block.entity.SignText;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -19,78 +15,67 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BigSignNetwork {
-    public static final Identifier MULTI_SIGN_UPDATE_ID = Identifier.of("connected-signs", "multi_sign_update");
+    public static final Identifier MULTI_SIGN_UPDATE_ID = new Identifier("connected-signs", "multi_sign_update");
+    public static final Identifier MARK_INDIVIDUAL_ID = new Identifier("connected-signs", "mark_individual");
+    public static final Identifier UNMARK_INDIVIDUAL_ID = new Identifier("connected-signs", "unmark_individual");
 
-    public record MultiSignUpdatePayload(List<BlockPos> positions, List<List<String>> lines) implements CustomPayload {
-        public static final CustomPayload.Id<MultiSignUpdatePayload> ID =
-                new CustomPayload.Id<>(MULTI_SIGN_UPDATE_ID);
+    public record MultiSignUpdatePayload(List<BlockPos> positions, List<List<String>> lines) implements FabricPacket {
+        public static final PacketType<MultiSignUpdatePayload> TYPE =
+                PacketType.create(MULTI_SIGN_UPDATE_ID, MultiSignUpdatePayload::new);
 
-        public static final PacketCodec<RegistryByteBuf, MultiSignUpdatePayload> CODEC =
-                PacketCodec.of(
-                        MultiSignUpdatePayload::write,
-                        MultiSignUpdatePayload::read
-                );
-
-        private static void write(MultiSignUpdatePayload payload, RegistryByteBuf buf) {
-            buf.writeVarInt(payload.positions().size());
-            for (int i = 0; i < payload.positions().size(); i++) {
-                buf.writeBlockPos(payload.positions().get(i));
-                List<String> signLines = payload.lines().get(i);
-                for (int l = 0; l < 4; l++) {
-                    buf.writeString(signLines.size() > l ? signLines.get(l) : "");
-                }
-            }
+        public MultiSignUpdatePayload(PacketByteBuf buf) {
+            this(readAll(buf));
         }
 
-        private static MultiSignUpdatePayload read(RegistryByteBuf buf) {
-            int count = buf.readVarInt();
-            List<BlockPos> positions = new ArrayList<>();
-            List<List<String>> lines = new ArrayList<>();
+        private MultiSignUpdatePayload(List<?>[] data) {
+            this((List<BlockPos>) data[0], (List<List<String>>) data[1]);
+        }
+
+        private static List<?>[] readAll(PacketByteBuf buf) {
+            int count = buf.readInt();
+            List<BlockPos> positions = new ArrayList<>(count);
+            List<List<String>> lines = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
                 positions.add(buf.readBlockPos());
-                List<String> signLines = new ArrayList<>();
-                for (int l = 0; l < 4; l++) {
+                List<String> signLines = new ArrayList<>(4);
+                for (int j = 0; j < 4; j++) {
                     signLines.add(buf.readString());
                 }
                 lines.add(signLines);
             }
-            return new MultiSignUpdatePayload(positions, lines);
+            return new List<?>[]{positions, lines};
         }
 
         @Override
-        public Id<? extends CustomPayload> getId() {
-            return ID;
+        public void write(PacketByteBuf buf) {
+            buf.writeInt(positions.size());
+            for (int i = 0; i < positions.size(); i++) {
+                buf.writeBlockPos(positions.get(i));
+                List<String> signLines = lines.get(i);
+                for (int j = 0; j < 4; j++) {
+                    buf.writeString(signLines.size() > j ? signLines.get(j) : "");
+                }
+            }
+        }
+
+        @Override
+        public PacketType<?> getType() {
+            return TYPE;
         }
     }
 
     public static void registerServer() {
-        try {
-            PayloadTypeRegistry.playS2C().register(
-                    MultiSignUpdatePayload.ID,
-                    MultiSignUpdatePayload.CODEC
-            );
-        } catch (IllegalArgumentException e) {
-        }
-
-        try {
-            PayloadTypeRegistry.playC2S().register(
-                    MultiSignUpdatePayload.ID,
-                    MultiSignUpdatePayload.CODEC
-            );
-        } catch (IllegalArgumentException e) {
-        }
-
         ServerPlayNetworking.registerGlobalReceiver(
-                MultiSignUpdatePayload.ID,
-                (payload, context) -> {
-                    ServerPlayerEntity player = context.player();
-                    context.server().execute(() -> {
-                        for (int i = 0; i < payload.positions().size(); i++) {
-                            BlockPos pos = payload.positions().get(i);
+                MULTI_SIGN_UPDATE_ID,
+                (server, player, handler, buf, responseSender) -> {
+                    MultiSignUpdatePayload packet = new MultiSignUpdatePayload(buf);
+                    server.execute(() -> {
+                        for (int i = 0; i < packet.positions().size(); i++) {
+                            BlockPos pos = packet.positions().get(i);
 
                             if (player.getWorld().getBlockEntity(pos) instanceof SignBlockEntity sign) {
                                 if (player.getBlockPos().isWithinDistance(pos, 8)) {
-                                    List<String> signLines = payload.lines().get(i);
+                                    List<String> signLines = packet.lines().get(i);
                                     sign.changeText(oldText -> {
                                         SignText newText = oldText;
                                         newText = newText.withMessage(0, Text.literal(signLines.get(0)));
@@ -109,20 +94,22 @@ public class BigSignNetwork {
                     });
                 }
         );
-    }
-
-    public static void sendMultiSignUpdate(List<BlockPos> positions, List<String[]> signLines) {
-        List<List<String>> linesList = new ArrayList<>();
-        for (String[] arr : signLines) {
-            linesList.add(List.of(arr));
-        }
-        ClientPlayNetworking.send(new MultiSignUpdatePayload(positions, linesList));
-    }
-
-    public static void registerClient() {
-        PayloadTypeRegistry.playC2S().register(
-                MultiSignUpdatePayload.ID,
-                MultiSignUpdatePayload.CODEC
+        ServerPlayNetworking.registerGlobalReceiver(
+                MARK_INDIVIDUAL_ID,
+                (server, player, handler, buf, responseSender) -> {
+                    BlockPos pos = buf.readBlockPos();
+                    boolean individual = buf.readBoolean();
+                    server.execute(() -> {
+                        server.getPlayerManager().sendToAll(
+                                ServerPlayNetworking.createS2CPacket(
+                                        MARK_INDIVIDUAL_ID,
+                                        new PacketByteBuf(new PacketByteBuf(io.netty.buffer.Unpooled.buffer())
+                                                .writeBlockPos(pos)
+                                                .writeBoolean(individual))
+                                )
+                        );
+                    });
+                }
         );
     }
 }

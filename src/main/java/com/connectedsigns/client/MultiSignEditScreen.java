@@ -78,11 +78,6 @@ public class MultiSignEditScreen extends Screen {
         cursorCol = rows[0].length();
     }
 
-    @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fillGradient(0, 0, this.width, this.height, 0x90000000, 0x90000000);
-    }
-
     private Identifier getSignTexture(World world, BlockPos pos) {
         String blockId = Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).getPath();
         String woodType = blockId.replace("_wall_sign", "");
@@ -109,6 +104,7 @@ public class MultiSignEditScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal(SignGroupCache.isIndividual(clickedPos) ? "Individual: YES" : "Individual: NO"), btn -> {
             if (SignGroupCache.isIndividual(clickedPos)) {
                 SignGroupCache.unmarkIndividual(clickedPos);
+                BigSignClientNetwork.sendMarkIndividual(clickedPos, false);
                 btn.setMessage(Text.literal("Individual: NO"));
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client.world != null) {
@@ -117,6 +113,7 @@ public class MultiSignEditScreen extends Screen {
                 }
             } else {
                 SignGroupCache.markIndividual(clickedPos);
+                BigSignClientNetwork.sendMarkIndividual(clickedPos, true);
                 btn.setMessage(Text.literal("Individual: YES"));
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client.world != null) {
