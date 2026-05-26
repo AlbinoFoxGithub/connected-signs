@@ -1,10 +1,7 @@
 package com.connectedsigns.network;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.block.entity.SignText;
 import net.minecraft.network.RegistryByteBuf;
@@ -20,6 +17,25 @@ import java.util.List;
 
 public class BigSignNetwork {
     public static final Identifier MULTI_SIGN_UPDATE_ID = Identifier.of("connected-signs", "multi_sign_update");
+
+    public record MarkIndividualPayload(BlockPos pos, boolean individual) implements CustomPayload {
+        public static final CustomPayload.Id<MarkIndividualPayload> ID =
+                new CustomPayload.Id<>(Identifier.of("connected-signs", "mark_individual"));
+
+        public static final PacketCodec<RegistryByteBuf, MarkIndividualPayload> CODEC =
+                PacketCodec.of(
+                        (payload, buf) -> {
+                            buf.writeBlockPos(payload.pos());
+                            buf.writeBoolean(payload.individual());
+                        },
+                        buf -> new MarkIndividualPayload(buf.readBlockPos(), buf.readBoolean())
+                );
+
+        @Override
+        public Id<? extends CustomPayload> getId() {
+            return ID;
+        }
+    }
 
     public record MultiSignUpdatePayload(List<BlockPos> positions, List<List<String>> lines) implements CustomPayload {
         public static final CustomPayload.Id<MultiSignUpdatePayload> ID =
@@ -65,20 +81,29 @@ public class BigSignNetwork {
 
     public static void registerServer() {
         try {
-            PayloadTypeRegistry.playS2C().register(
-                    MultiSignUpdatePayload.ID,
-                    MultiSignUpdatePayload.CODEC
-            );
-        } catch (IllegalArgumentException e) {
+            PayloadTypeRegistry.playS2C().register(MultiSignUpdatePayload.ID, MultiSignUpdatePayload.CODEC);
+            PayloadTypeRegistry.playS2C().register(MarkIndividualPayload.ID, MarkIndividualPayload.CODEC);
+        } catch (IllegalArgumentException ignored) {
         }
 
         try {
-            PayloadTypeRegistry.playC2S().register(
-                    MultiSignUpdatePayload.ID,
-                    MultiSignUpdatePayload.CODEC
-            );
-        } catch (IllegalArgumentException e) {
+            PayloadTypeRegistry.playC2S().register(MultiSignUpdatePayload.ID, MultiSignUpdatePayload.CODEC);
+            PayloadTypeRegistry.playC2S().register(MarkIndividualPayload.ID, MarkIndividualPayload.CODEC);
+        } catch (IllegalArgumentException ignored) {
         }
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                MarkIndividualPayload.ID,
+                (payload, context) -> {
+                    context.server().execute(() -> {
+                        context.server().getPlayerManager().sendToAll(
+                                ServerPlayNetworking.createS2CPacket(
+                                        new MarkIndividualPayload(payload.pos(), payload.individual())
+                                )
+                        );
+                    });
+                }
+        );
 
         ServerPlayNetworking.registerGlobalReceiver(
                 MultiSignUpdatePayload.ID,
@@ -108,21 +133,6 @@ public class BigSignNetwork {
                         }
                     });
                 }
-        );
-    }
-
-    public static void sendMultiSignUpdate(List<BlockPos> positions, List<String[]> signLines) {
-        List<List<String>> linesList = new ArrayList<>();
-        for (String[] arr : signLines) {
-            linesList.add(List.of(arr));
-        }
-        ClientPlayNetworking.send(new MultiSignUpdatePayload(positions, linesList));
-    }
-
-    public static void registerClient() {
-        PayloadTypeRegistry.playC2S().register(
-                MultiSignUpdatePayload.ID,
-                MultiSignUpdatePayload.CODEC
         );
     }
 }

@@ -29,6 +29,7 @@ public class ConnectedSignsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		BigSignClientNetwork.registerClient();
+		BigSignClientNetwork.registerClientReceiver();
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.world != null) {
