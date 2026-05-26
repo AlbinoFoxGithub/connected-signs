@@ -46,7 +46,7 @@ public abstract class AbstractSignEditScreenMixin {
         }
 
         List<BlockPos> group = SignGroup.findConnectedSigns(client.world, connectedSigns$signPos);
-        client.setScreen(new MultiSignEditScreen(group, client.world));
+        client.setScreen(new MultiSignEditScreen(group, client.world, connectedSigns$signPos));
     }
 
     @Inject(method = "removed", at = @At("HEAD"), cancellable = true)

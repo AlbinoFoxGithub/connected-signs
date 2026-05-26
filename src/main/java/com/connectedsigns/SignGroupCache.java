@@ -10,10 +10,32 @@ public class SignGroupCache {
 
     private static final Map<BlockPos, List<BlockPos>> groupCache = new HashMap<>();
 
+    private static final Set<BlockPos> individualSigns = new HashSet<>();
+
+    private static final Set<BlockPos> largeRowGroups = new HashSet<>();
+
+    // individuality
+    public static void markIndividual(BlockPos pos) {
+        individualSigns.add(pos);
+    }
+    public static void unmarkIndividual(BlockPos pos) {
+        individualSigns.remove(pos);
+    }
+    public static boolean isIndividual(BlockPos pos) {
+        return individualSigns.contains(pos);
+    }
+
+    public static void setLargeRow(BlockPos pos, boolean enabled) {
+        if (enabled) largeRowGroups.add(pos);
+        else largeRowGroups.remove(pos);
+    }
+    public static boolean isLargeRow(BlockPos pos) {
+        return largeRowGroups.contains(pos);
+    }
+
     public static void setWorld(World world) {
         currentWorld = world;
     }
-
     public static World getWorld(BlockPos pos) {
         return currentWorld;
     }
